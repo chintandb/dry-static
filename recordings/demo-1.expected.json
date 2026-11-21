@@ -1,0 +1,17 @@
+{
+  "note": "Synthetic recording. Expected verdicts come from the generator, not from physiology.",
+  "rounds": [
+    {
+      "round": 1,
+      "verdict": "verified"
+    },
+    {
+      "round": 2,
+      "verdict": "breath_detected"
+    },
+    {
+      "round": 3,
+      "verdict": "verified"
+    }
+  ]
+}
