@@ -19,7 +19,7 @@ const round = (n: number, firstTapS: number, taps: number[], marks: number[], tr
   plannedHoldS: 50,
   actualHoldS: 50,
   stopped: false,
-  verdict: { verdict: 'verified', readablePct: 100, breathAt: null, unreadable: [] },
+  verdict: { verdict: 'verified', readablePct: 100, breathAt: null, excused: [], unreadable: [] },
   marks,
   taps,
   firstTapS,

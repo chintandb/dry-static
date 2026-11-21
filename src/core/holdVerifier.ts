@@ -14,6 +14,8 @@ export interface HoldVerdict {
   verdict: 'verified' | 'breath_detected' | 'partly_readable';
   readablePct: number;
   breathAt: number | null;
+  /** dips the user marked as contractions, so not counted as breaths (SDK-time seconds) */
+  excused: number[];
   unreadable: [number, number][];
 }
 
@@ -67,7 +69,9 @@ export class HoldVerifier {
   private readonly samples: TracePoint[] = [];
   private readonly talking: TalkPoint[] = [];
   private readonly validation: { t: number; code: number }[] = [];
-  private breathAt: number | null = null;
+  /** breath-sized excursions, before taps are taken into account */
+  private readonly candidates: { at: number; start: number; end: number; peak: number }[] = [];
+  private readonly taps: number[] = [];
   private readonly tIgnore: number;
   /** newest time already judged by the breath scan */
   private scanCursor = Number.NEGATIVE_INFINITY;
@@ -90,6 +94,33 @@ export class HoldVerifier {
       added = true;
     }
     if (added) this.scanBreath();
+  }
+
+  /** Contraction taps (SDK-time seconds). */
+  pushTaps(times: number[]): void {
+    for (const t of times) if (Number.isFinite(t)) this.taps.push(t);
+  }
+
+  /**
+   * First breath-sized excursion that no contraction tap explains. With `now`, an excursion
+   * is only reported once its tap window has passed, so a tap that arrives a moment later
+   * can still explain it.
+   */
+  private breathAt(now?: number): number | null {
+    for (const c of this.candidates) {
+      const short = c.end - c.start <= this.p.tapExcuseMaxS;
+      const excused =
+        short && this.taps.some((t) => t >= c.at - this.p.tapExcuseBeforeS && t <= c.at + this.p.tapExcuseAfterS);
+      if (excused) continue;
+      if (now !== undefined && short && now < c.at + this.p.tapExcuseAfterS) continue;
+      return c.at;
+    }
+    return null;
+  }
+
+  /** Excursions seen so far, for tuning: `{ at, start, end, peak }` with peak as a share of A. */
+  excursions(): { at: number; start: number; end: number; peak: number }[] {
+    return this.candidates.map((c) => ({ ...c }));
   }
 
   pushTalking(pts: TalkPoint[]): void {
@@ -120,7 +151,6 @@ export class HoldVerifier {
    * also means the last seconds of a hold are checked as soon as they arrive.
    */
   private scanBreath(): void {
-    if (this.breathAt !== null) return;
     const primary = this.cal.primary;
     if (!primary) return;
     const A = this.cal[primary].A;
@@ -171,8 +201,19 @@ export class HoldVerifier {
         extremeAt = t[i];
       }
       if (t[i] - runStart >= this.p.breathMinS) {
-        this.breathAt = extremeAt;
-        return;
+        // one candidate per excursion: a run can be re-judged by the next sweep
+        const last = this.candidates[this.candidates.length - 1];
+        const peak = Math.abs(extreme) / A;
+        if (last === undefined || runStart > last.end + this.p.breathMinS) {
+          this.candidates.push({ at: extremeAt, start: runStart, end: t[i], peak });
+        } else {
+          last.start = Math.min(last.start, runStart);
+          last.end = Math.max(last.end, t[i]);
+          if (peak >= last.peak) {
+            last.peak = peak;
+            last.at = extremeAt;
+          }
+        }
       }
     }
     this.scanCursor = Math.max(this.scanCursor, evalTo);
@@ -225,7 +266,7 @@ export class HoldVerifier {
   }
 
   status(now: number): HoldLiveStatus {
-    if (this.breathAt !== null) return { state: 'breath', reason: 'breath_seen' };
+    if (this.breathAt(now) !== null) return { state: 'breath', reason: 'breath_seen' };
     const { readable, reason } = this.readableAt(now);
     if (!readable) return { state: 'unreadable', reason };
     return { state: 'verified', reason };
@@ -248,9 +289,14 @@ export class HoldVerifier {
     }
     if (open !== null) unreadable.push([open, tEnd]);
 
+    const breathAt = this.breathAt();
+    const excused = this.candidates
+      .filter((c) => c.end - c.start <= this.p.tapExcuseMaxS)
+      .filter((c) => this.taps.some((t) => t >= c.at - this.p.tapExcuseBeforeS && t <= c.at + this.p.tapExcuseAfterS))
+      .map((c) => c.at);
     const verdict: HoldVerdict['verdict'] =
-      this.breathAt !== null ? 'breath_detected' : readablePct >= this.p.readablePctMin ? 'verified' : 'partly_readable';
+      breathAt !== null ? 'breath_detected' : readablePct >= this.p.readablePctMin ? 'verified' : 'partly_readable';
 
-    return { verdict, readablePct, breathAt: this.breathAt, unreadable };
+    return { verdict, readablePct, breathAt, excused, unreadable };
   }
 }

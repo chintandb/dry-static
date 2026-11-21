@@ -54,7 +54,7 @@ Stop (the button, S or Esc) means different things by phase. During a hold it en
 
 If the key is not allowed to use pulse or talking, the app retries once with the breathing signals only.
 
-**Hold verification.** The first 3 s of a hold are ignored (final inhale, settling). After that, a stretch of the hold is unreadable when no sample arrives for more than 1.5 s, when the SDK's validation status is not OK for more than 1.5 s (a bad state that was already present when the hold began counts too), or when the SDK reports talking. A breath is flagged when the smoothed trace moves away from its baseline, in either direction, by more than 0.4 times your settle-in amplitude and stays there for at least 0.4 s. The baseline is a trailing median of the previous 12 s, so a one-sided dip from a quick exhale and re-inhale is not averaged away. A hold ends as `verified` (no breath, readable for at least 90% of the time), `breath detected`, or `partly readable` with the readable share.
+**Hold verification.** The first 8 s of a hold are ignored: on a real recording the chest kept settling for 5 to 8 s after the last breath before the hold. After that, a stretch of the hold is unreadable when no sample arrives for more than 1.5 s, when the SDK's validation status is not OK for more than 1.5 s (a bad state that was already present when the hold began counts too), or when the SDK reports talking. A breath is flagged when the smoothed trace moves away from its baseline, in either direction, by more than 0.4 times your settle-in amplitude and stays there for at least 0.4 s. The baseline is a trailing median of the previous 12 s, so a one-sided dip from a quick exhale and re-inhale is not averaged away. A contraction can move the chest about as much as a small breath, so a short movement (2.5 s or less) is not counted as a breath when you tapped `c` from 1.5 s before it to 3 s after it. The live chip waits those 3 s before it shows BREATH DETECTED for a short movement, and the round summary lists every movement that a tap excused. A hold ends as `verified` (no breath, readable for at least 90% of the time), `breath detected`, or `partly readable` with the readable share.
 
 **Contraction marks (experimental).** The detector removes slow drift from the abdominal trace (2 s moving median), takes a 0.5 s RMS envelope, and uses the median envelope from 3 to 10 s into the hold as the baseline. From 10 s on, a mark fires when the envelope rises above 3 times that baseline (and at least 0.1 times the settle-in amplitude), with at least 2 s between marks and none inside unreadable stretches. Each mark is matched one-to-one to a Space tap within 1.5 s, and the end screen reports how many agreed.
 
@@ -62,7 +62,7 @@ If the key is not allowed to use pulse or talking, the app retries once with the
 
 ## Measurements and limits
 
-The detectors have only been checked on synthetic data. Measuring them on a person takes two scripts: `npm run record` captures holds from the camera with keyboard marks, and `npm run analyze` runs the same detectors over the files and applies four checks. [docs/BENCHMARK.md](docs/BENCHMARK.md) has the steps and the thresholds.
+The detectors have been checked on synthetic data and on one real session of three holds (21 Nov 2026, results in [docs/BENCHMARK.md](docs/BENCHMARK.md#results)). Measuring them on a person takes two scripts: `npm run record` captures holds from the camera with keyboard marks, and `npm run analyze` runs the same detectors over the files and applies four checks. [docs/BENCHMARK.md](docs/BENCHMARK.md) has the steps and the thresholds.
 
 This is the current output for the bundled synthetic recording (`npm run analyze -- recordings/demo-1.jsonl`):
 
@@ -71,19 +71,19 @@ This is the current output for the bundled synthetic recording (`npm run analyze
    cadence 27.5 Hz, bad lines 0, invalid 0.0%
    delay 73 ms median, 73 ms p95 (jitter above the fastest packet)
    calibration: primary lower (SNR 9.8), contraction trace lower
-   round 1: 45.0 s hold, verified (readable 99.8%), coverage 100.0%, max gap 0.04 s
+   round 1: 45.0 s hold, verified (readable 100.0%), coverage 100.0%, max gap 0.04 s
      marks 2 vs taps 2 (2 matched, precision 1.00, recall 1.00)
-     pulse start 72 BPM, min 65 BPM, delta -7 BPM; confidence back after 0.0 s
-   round 2: 45.0 s hold, breath_detected (readable 99.8%), coverage 100.0%, max gap 0.04 s
-     breath seen at 229.0 s
-     marks 3 vs taps 2 (2 matched, precision 0.67, recall 1.00)
-     pulse start 65 BPM, min 58 BPM, delta -7 BPM; confidence back after 0.0 s
-   round 3: 45.0 s hold, verified (readable 99.8%), coverage 100.0%, max gap 0.04 s
+     pulse start 72.0 BPM, min 65.0 BPM, delta -7.0 BPM; confidence back after 0.0 s
+   round 2: 45.0 s hold, breath_detected (readable 100.0%), coverage 100.0%, max gap 0.04 s
+     breath seen at 235.0 s
+     marks 4 vs taps 2 (2 matched, precision 0.50, recall 1.00)
+     pulse start 65.0 BPM, min 58.0 BPM, delta -7.0 BPM; confidence back after 0.0 s
+   round 3: 45.0 s hold, verified (readable 100.0%), coverage 100.0%, max gap 0.04 s
      marks 3 vs taps 3 (3 matched, precision 1.00, recall 1.00)
-     pulse start 58 BPM, min 51 BPM, delta -7 BPM; confidence back after 0.0 s
+     pulse start 58.0 BPM, min 51.0 BPM, delta -7.0 BPM; confidence back after 0.0 s
 holds: 3
 (a) verified-hold signal quality: PASS
-(b) contraction marks vs taps: PASS — 7 matched of 8 marks and 7 taps
+(b) contraction marks vs taps: PASS — 7 matched of 9 marks and 7 taps
 (c) pulse drop across holds: PASS
 (d) breathing confidence recovery: PASS
 ship: GO
@@ -93,9 +93,9 @@ These numbers show the pipeline works end to end. The generator chose the breath
 
 | | Synthetic recording | Real person |
 |---|---|---|
-| Hold verdicts | 3 of 3 match what the generator placed | not measured yet |
-| Contraction marks vs taps | precision 0.88, recall 1.00 (7 of 8 marks, 7 taps) | not measured yet |
-| Pulse drop per hold | -7 BPM (generated) | not measured yet |
+| Hold verdicts | 3 of 3 match what the generator placed | 3 of 3 real holds verified (after the 8 s settle window and the tap rule; the first version flagged all 3) |
+| Contraction marks vs taps | precision 0.78, recall 1.00 (7 of 9 marks, 7 taps) | 0 of 6 taps matched (waist out of frame, chest trace only) |
+| Pulse drop per hold | -7 BPM (generated) | -7.7 and -17.3 BPM (round 1 had no pulse before the hold) |
 
 ## Privacy and data
 
@@ -117,7 +117,8 @@ DRY STATIC is a training aid for dry breath-hold practice. It is not a medical d
 
 - macOS on Apple Silicon only. It has not been tested anywhere else.
 - Hold verification and contraction marks are tuned on synthetic traces. Neither has been measured on a person yet.
-- A breath smaller than 0.4 times your normal breathing amplitude is not flagged, and neither is one in the first 3 s of a hold or inside a signal gap.
+- A breath smaller than 0.4 times your normal breathing amplitude is not flagged, and neither is one in the first 8 s of a hold or inside a signal gap.
+- A short breath right next to a `c` tap is not flagged. The round summary still lists it, so the check is honest only if you tap `c` for real contractions.
 - Contraction marks are experimental. Your Space taps remain the reference.
 - It needs your chest and waist in view, light in front of you, and you sitting still.
 - Live sessions need a network connection and use trial minutes on your key.

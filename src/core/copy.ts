@@ -150,6 +150,7 @@ export const COPY: Record<string, string> = {
 
   'pulse.outOfRange': "outside the SDK's valid range",
   'pulse.lagNote': 'Pulse is a 12-second average, so it lags.',
+  'round.excused': 'Not counted as breaths: {n} chest movement(s) you tapped as contractions.',
   'pulse.na': 'not available',
   'pulse.incomplete': 'not available (window not complete)',
 

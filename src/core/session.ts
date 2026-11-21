@@ -78,7 +78,7 @@ export interface SessionView {
   validation: { code: number; hint: string } | null;
 }
 
-const emptyVerdict: HoldVerdict = { verdict: 'partly_readable', readablePct: 0, breathAt: null, unreadable: [] };
+const emptyVerdict: HoldVerdict = { verdict: 'partly_readable', readablePct: 0, breathAt: null, excused: [], unreadable: [] };
 
 /**
  * Extra wall time the finishing phase allows past `pulseLagS`: samples arrive a little after
@@ -200,7 +200,10 @@ export class SessionController {
     // after the hold_end cue and a replayed file interleaves them with packets
     const t0 = this.sdkTime(t.wallMs);
     this.allTaps.push(t0);
-    if (this.phase === 'hold') this.holdTaps.push(t0);
+    if (this.phase === 'hold') {
+      this.holdTaps.push(t0);
+      this.verifier?.pushTaps([t0]);
+    }
   }
 
   /** Replay mode drives phases from recorded cues; live mode ignores recorded cues. */
@@ -442,6 +445,7 @@ export class SessionController {
       // A validation code set before the hold still applies: the verifier only hears codes
       // pushed while it exists, so seed it with the latest one (a kOk seed is harmless).
       if (this.lastValidation) this.verifier.pushValidation(this.holdT0, this.lastValidation.code);
+      this.verifier.pushTaps(this.holdTaps);
     }
   }
 

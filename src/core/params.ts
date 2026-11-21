@@ -1,6 +1,7 @@
 /**
- * Every tunable number in the app. Only envelopeK, envelopeAbsFrac and breathFrac are tuned
- * on real recordings, and only within +/-50% of these defaults.
+ * Every tunable number in the app. envelopeK, envelopeAbsFrac and breathFrac may be tuned on
+ * real recordings, within +/-50% of these defaults. holdIgnoreS and the tapExcuse* values were
+ * set from the first real recording (21 Nov 2026, see docs/BENCHMARK.md).
  */
 export const DEFAULT_PARAMS = {
   /** settle-in length, seconds (45 not 60, to save trial minutes) */
@@ -16,8 +17,21 @@ export const DEFAULT_PARAMS = {
   /** minimum breath SNR for the abdominal trace to be used for contractions */
   contractionSnrMin: 2,
 
-  /** the start of a hold is ignored this long (final inhale, settling) */
-  holdIgnoreS: 3,
+  /**
+   * The start of a hold is ignored this long. On real recordings the chest keeps settling
+   * for 5 to 8 s after the breath taken before the hold.
+   */
+  holdIgnoreS: 8,
+  /**
+   * An excursion the user marked as a contraction (a tap from this long before it to this
+   * long after it) is not counted as a breath: on real recordings a felt contraction moves
+   * the chest trace about as much as a small breath. A breath is only reported once the
+   * "after" window has passed without such a tap.
+   */
+  tapExcuseBeforeS: 1.5,
+  tapExcuseAfterS: 3,
+  /** only an excursion this short can be excused by a tap; a sneaked breath lasts longer */
+  tapExcuseMaxS: 2.5,
   /** no sample for this long means the hold is not readable */
   gapS: 1.5,
   /** a validation warning must persist this long before the hold is unreadable */

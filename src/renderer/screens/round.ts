@@ -117,6 +117,9 @@ export function mount(root: HTMLElement, ctx: AppContext): ScreenHandle {
         prevBox.append(
           el('h3', {}, `Round ${round.round}: ${round.stopped ? verdictText(round) : round.verdict.verdict.replace('_', ' ')}`),
           g,
+          ...(round.verdict.excused.length
+            ? [el('p', { class: 'tiny' }, fmt('round.excused', { n: round.verdict.excused.length }))]
+            : []),
           el('p', { class: 'tiny' }, `${COPY['pulse.lagNote']} ${pulseLine(round)}`),
         );
         const c = g.getContext('2d');

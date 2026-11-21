@@ -111,11 +111,53 @@ describe('holdVerifier', () => {
     expect(v.status(33.2).state).toBe('verified');
   });
 
-  it('ignores the first 3 s', () => {
+  it('ignores the first 8 s while the chest settles', () => {
     const trace = makeTrace({
-      base: (t) => (t < 3 ? Math.sin((Math.PI * t) / 3) : 0),
+      base: (t) => (t < 7 ? -Math.sin((Math.PI * t) / 7) : 0),
     });
     expect(run(trace, 60).finish(60).verdict).toBe('verified');
+  });
+
+  describe('contraction taps', () => {
+    // a short one-sided dip, the size of a felt contraction on a real recording
+    const dip = (t: number) => (t >= 30 && t < 31.6 ? -0.8 * Math.sin((Math.PI * (t - 30)) / 1.6) : 0);
+
+    it('a short dip with no tap is a breath', () => {
+      const verdict = run(makeTrace({ base: dip }), 60).finish(60);
+      expect(verdict.verdict).toBe('breath_detected');
+      expect(verdict.excused).toEqual([]);
+    });
+
+    it('a short dip next to a contraction tap is not a breath, and is reported', () => {
+      const verdict = run(makeTrace({ base: dip }), 60, (v) => v.pushTaps([31.5])).finish(60);
+      expect(verdict.verdict).toBe('verified');
+      expect(verdict.breathAt).toBeNull();
+      expect(verdict.excused).toHaveLength(1);
+      expect(verdict.excused[0]).toBeGreaterThan(29.5);
+      expect(verdict.excused[0]).toBeLessThan(32);
+    });
+
+    it('a tap far from the dip does not excuse it', () => {
+      const verdict = run(makeTrace({ base: dip }), 60, (v) => v.pushTaps([40])).finish(60);
+      expect(verdict.verdict).toBe('breath_detected');
+    });
+
+    it('a full breath is caught even with a tap next to it', () => {
+      const trace = makeTrace({
+        base: (t) => (t >= 30 && t < 34 ? -Math.sin((Math.PI * (t - 30)) / 4) : 0),
+      });
+      const verdict = run(trace, 60, (v) => v.pushTaps([32])).finish(60);
+      expect(verdict.verdict).toBe('breath_detected');
+    });
+
+    it('live status waits for a late tap before calling a short dip a breath', () => {
+      const v = new HoldVerifier(0, cal, p);
+      v.pushSamples(makeTrace({ base: dip, seconds: 33 }));
+      expect(v.status(32.9).state).toBe('verified');
+      v.pushTaps([32.5]);
+      v.pushSamples(makeTrace({ base: dip }).filter((pt) => pt.t >= 33));
+      expect(v.status(45).state).toBe('verified');
+    });
   });
 
   it('reports a breath status as sticky', () => {

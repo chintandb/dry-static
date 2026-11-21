@@ -17,7 +17,7 @@ const plan = planTable({ pbS: 90, type: 'co2', size: 'quick', capPct: 0.5 });
 // times are relative to each hold start; synthSession wants absolute session times
 const holds = [
   { contractionsAtS: [22, 33], sneakAtRelS: undefined as number | undefined },
-  { contractionsAtS: [24, 34], sneakAtRelS: 22 },
+  { contractionsAtS: [24, 34], sneakAtRelS: 28 },
   { contractionsAtS: [20, 30, 40], sneakAtRelS: undefined },
 ];
 

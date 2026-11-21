@@ -155,12 +155,23 @@ export function analyzeRecording(file: string, text: string, p: Params): FileRep
   const calibFrom = firstStart - p.calibWindowS;
   const pick = <T extends { t: number }>(xs: T[], from: number, to: number): T[] => xs.filter((x) => x.t >= from && x.t <= to);
 
-  const calibration = calibrate(
+  // Calibrate on the normal breathing before the first hold. If the first hold started too
+  // early for that, fall back to all breathing outside the holds.
+  let calibration = calibrate(
     pick(upper, calibFrom, firstStart),
     pick(lower, calibFrom, firstStart),
     pick(pulse, calibFrom, firstStart),
     p,
   );
+  if (calibration.primary === null && starts.length) {
+    const inHold = (t: number): boolean =>
+      starts.some((s, i) => {
+        const end = ends.find((e) => e.t > s.t)?.t ?? starts[i + 1]?.t ?? Number.POSITIVE_INFINITY;
+        return t >= s.t && t <= end;
+      });
+    const outside = <T extends { t: number }>(xs: T[]): T[] => xs.filter((x) => !inHold(x.t));
+    calibration = calibrate(outside(upper), outside(lower), outside(pulse), { ...p, calibWindowS: Number.POSITIVE_INFINITY });
+  }
 
   const delayMin = delays.length ? Math.min(...delays) : 0;
   const delayMs = delays.map((d) => (d - delayMin) * 1000);
@@ -201,6 +212,7 @@ export function analyzeRecording(file: string, text: string, p: Params): FileRep
       if (v.t >= start.t && v.t <= tEnd) verifier.pushValidation(v.t, v.code);
     }
     verifier.pushTalking(pick(talking, start.t, tEnd));
+    verifier.pushTaps(tapTimes.filter((tap) => tap.kind === 'contraction' && tap.t >= start.t && tap.t <= tEnd).map((tap) => tap.t));
     const verdict = verifier.finish(tEnd);
 
     const A = calibration.contractionTrace ? calibration[calibration.contractionTrace].A : 0;
@@ -256,7 +268,8 @@ export function goNoGo(reports: FileReport[], p: Params): GoNoGo {
   const worstCoverage = holds.length ? Math.min(...holds.map((h) => h.coveragePct)) : 0;
   const worstGap = holds.length ? Math.max(...holds.map((h) => h.maxGapS)) : Number.POSITIVE_INFINITY;
   let a: Check;
-  if (holds.length === 0) a = 'FAIL';
+  // Without a calibrated trace nothing can be verified, whatever the data coverage says.
+  if (holds.length === 0 || reports.some((r) => r.calibration.primary === null)) a = 'FAIL';
   else if (worstCoverage >= 90 && worstGap <= 1.0 && slowestCadence >= 20) a = 'PASS';
   else if (worstCoverage >= 60) a = 'PARTIAL';
   else a = 'FAIL';
@@ -279,7 +292,7 @@ export function goNoGo(reports: FileReport[], p: Params): GoNoGo {
 
 const seconds = (s: number): string => `${s.toFixed(1)} s`;
 const pulseText = (value: PulseTrend['start']): string =>
-  value.kind === 'value' ? `${value.bpm} BPM` : value.kind === 'out_of_range' ? "outside the SDK's valid range" : 'not available';
+  value.kind === 'value' ? `${value.bpm.toFixed(1)} BPM` : value.kind === 'out_of_range' ? "outside the SDK's valid range" : 'not available';
 
 export function formatReport(reports: FileReport[], g: GoNoGo): string {
   const out: string[] = [];
@@ -294,13 +307,15 @@ export function formatReport(reports: FileReport[], g: GoNoGo): string {
     );
     for (const h of r.holds) {
       out.push(
-        `   round ${h.round}: ${seconds(h.durS)} hold, ${h.verdict.verdict} (readable ${h.verdict.readablePct.toFixed(1)}%), coverage ${h.coveragePct.toFixed(1)}%, max gap ${h.maxGapS.toFixed(2)} s`,
+        `   round ${h.round}: ${seconds(h.durS)} hold, ${r.calibration.primary ? h.verdict.verdict : 'not judged (no calibration)'} (readable ${h.verdict.readablePct.toFixed(1)}%), coverage ${h.coveragePct.toFixed(1)}%, max gap ${h.maxGapS.toFixed(2)} s`,
       );
       if (h.verdict.breathAt !== null) out.push(`     breath seen at ${seconds(h.verdict.breathAt)}`);
+      if (h.verdict.excused.length)
+        out.push(`     not counted as breaths (contraction tapped): ${h.verdict.excused.map(seconds).join(', ')}`);
       out.push(
         `     marks ${h.marks.length} vs taps ${h.taps.length} (${h.match.matched} matched, precision ${h.match.precision === null ? '-' : h.match.precision.toFixed(2)}, recall ${h.match.recall === null ? '-' : h.match.recall.toFixed(2)})`,
       );
-      const delta = h.pulse.delta === null ? 'not available' : `${h.pulse.delta} BPM`;
+      const delta = h.pulse.delta === null ? 'not available' : `${h.pulse.delta.toFixed(1)} BPM`;
       out.push(
         `     pulse start ${pulseText(h.pulse.start)}, min ${pulseText(h.pulse.min)}, delta ${delta}; confidence back after ${h.recoveryS === null ? '-' : seconds(h.recoveryS)}`,
       );

@@ -66,7 +66,7 @@ const result: SessionResult = {
       plannedHoldS: 45,
       actualHoldS: 45,
       stopped: false,
-      verdict: { verdict: 'breath_detected', readablePct: 98, breathAt: 22, unreadable: [] },
+      verdict: { verdict: 'breath_detected', readablePct: 98, breathAt: 22, excused: [], unreadable: [] },
       marks: [22],
       taps: [22.4],
       firstTapS: 22.4,
