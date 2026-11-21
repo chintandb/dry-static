@@ -81,6 +81,7 @@ let lastRate = '-';
 let holdState = '';
 let holdStartedAt = 0;
 let contractions = 0;
+const lastKeyAt: Record<string, number> = {};
 let upperCount = 0;
 let lowerCount = 0;
 let lastSecond = -1;
@@ -213,8 +214,22 @@ process.stdin.on('data', (key: string) => {
     void shutdown(0);
     return;
   }
-  const kind = taps[key.toLowerCase()];
+  const k = key.toLowerCase();
+  const kind = taps[k];
   if (!kind) return;
+  // A held-down key repeats about 12 times a second; count one press per key per 0.8 s.
+  const now = wall();
+  if (now - (lastKeyAt[k] ?? -Infinity) < 800) {
+    lastKeyAt[k] = now;
+    return;
+  }
+  lastKeyAt[k] = now;
+  // Keys only make sense in order: s starts a hold, c and e need a hold in progress.
+  const holding = holdStartedAt !== 0;
+  if ((kind === 'hold_start' && holding) || (kind !== 'hold_start' && !holding)) {
+    process.stdout.write(`\n  ${k} ignored: ${holding ? 'a hold is already running (tap e to end it)' : 'no hold running (tap s to start one)'}\n`);
+    return;
+  }
   if (kind === 'contraction') {
     write({ type: 'tap', wallMs: wall(), kind: 'contraction' });
     contractions += 1;
