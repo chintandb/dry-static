@@ -6,6 +6,8 @@ Freedivers train breath-holds on land with CO2 and O2 tables: a fixed series of 
 
 It is a desktop app built with Electron and TypeScript. It runs on macOS with Apple Silicon and needs Node.js 20 or newer.
 
+Demo video (2:54): [docs/demo.mp4](docs/demo.mp4). It plays the bundled synthetic recording at 4x speed, then shows the analyzer output from a real session of three holds.
+
 ## Quick start
 
 You need a Presage API key. A free one is available at https://physiology.presagetech.com/auth/register.
