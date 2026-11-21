@@ -8,6 +8,7 @@ import { createWriteStream, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { loadApiKey } from '../src/main/env.js';
 import { isMetricRefusal, nextMetricsAfterError } from '../src/core/metrics.js';
+import { validationHint } from '../src/core/copy.js';
 import { rawFromDecoded } from '../src/core/normalize.js';
 import { serializeLine } from '../src/core/recording.js';
 import type { RecLine } from '../src/core/types.js';
@@ -50,7 +51,8 @@ try {
 }
 
 mkdirSync(dirname(resolve(outPath)) || '.', { recursive: true });
-const out = createWriteStream(resolve(outPath), { flags: 'a' });
+// One file per session: replace any earlier recording at this path.
+const out = createWriteStream(resolve(outPath), { flags: 'w' });
 const write = (l: RecLine) => out.write(serializeLine(l) + '\n');
 const wall = () => performance.now();
 
@@ -73,6 +75,12 @@ let round = 0;
 let packets = 0;
 let inspectsLeft = inspect ? 1 : 0;
 let lastLine = '';
+let lastView = 'waiting for camera';
+let lastPulse = '-';
+let lastRate = '-';
+let holdState = '';
+let holdStartedAt = 0;
+let contractions = 0;
 let upperCount = 0;
 let lowerCount = 0;
 let lastSecond = -1;
@@ -85,6 +93,7 @@ function attach(instance: any): void {
   });
   instance.on('validationStatus', (code: number, tsUs: number, hint: string) => {
     if (instance !== sdk) return;
+    lastView = code === 0 ? 'OK' : validationHint(code, hint);
     write({ type: 'validation', wallMs: wall(), tsUs, code, hint });
   });
   instance.on('error', (code: number, message: string, retryable: boolean) => {
@@ -120,10 +129,10 @@ function attach(instance: any): void {
     packets += 1;
     upperCount += raw.upper.length;
     lowerCount += raw.lower.length;
-    lastLine =
-      `upper=${raw.upper.length ? 'y' : 'n'} lower=${raw.lower.length ? 'y' : 'n'} ` +
-      `pulse=${raw.pulse.length ? raw.pulse[raw.pulse.length - 1][1] : '-'} ` +
-      `rate=${raw.rate.length ? raw.rate[raw.rate.length - 1][1] : '-'}`;
+    // Pulse and rate arrive only every second or so; keep the latest value on screen.
+    if (raw.pulse.length) lastPulse = Math.round(raw.pulse[raw.pulse.length - 1][1]).toString();
+    if (raw.rate.length) lastRate = raw.rate[raw.rate.length - 1][1].toFixed(1);
+    lastLine = `pulse=${lastPulse} rate=${lastRate}`;
     write({ type: 'metrics', ...raw });
   });
 }
@@ -180,7 +189,11 @@ const ticker = setInterval(() => {
   if (Math.floor(t) !== lastSecond) {
     lastSecond = Math.floor(t);
     const cadence = t > 1 ? (upperCount / t).toFixed(0) : '0';
-    process.stdout.write(`\r t=${lastSecond}s packets=${packets} upper≈${cadence}/s lower=${lowerCount} ${lastLine}   `);
+    const view = lastView.length > 48 ? `${lastView.slice(0, 47)}…` : lastView;
+    const hold = holdStartedAt
+      ? `HOLD ${((wall() - holdStartedAt) / 1000).toFixed(0)}s c=${contractions} | `
+      : holdState;
+    process.stdout.write(`\r\x1b[2K t=${lastSecond}s ${hold}upper≈${cadence}/s lower=${lowerCount} ${lastLine} | view: ${view}`);
   }
 }, 200);
 
@@ -200,14 +213,22 @@ process.stdin.on('data', (key: string) => {
     void shutdown(0);
     return;
   }
-  const kind = taps[key];
+  const kind = taps[key.toLowerCase()];
   if (!kind) return;
   if (kind === 'contraction') {
     write({ type: 'tap', wallMs: wall(), kind: 'contraction' });
+    contractions += 1;
     process.stdout.write('\n  c -> contraction\n');
     return;
   }
-  if (kind === 'hold_start') round += 1;
+  if (kind === 'hold_start') {
+    round += 1;
+    holdStartedAt = wall();
+    contractions = 0;
+  } else {
+    holdState = `last hold ${((wall() - holdStartedAt) / 1000).toFixed(0)}s | `;
+    holdStartedAt = 0;
+  }
   write({ type: 'cue', wallMs: wall(), phase: kind, round: Math.max(1, round) });
   process.stdout.write(`\n  ${key} -> ${kind} (round ${Math.max(1, round)})\n`);
 });
