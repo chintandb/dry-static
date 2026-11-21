@@ -1,0 +1,34 @@
+{
+  "name": "dry-static",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.cjs",
+  "description": "Camera-verified dry apnea table trainer built on the Presage SmartSpectra SDK",
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/ensure-electron.mjs && node scripts/build.mjs",
+    "start": "npm run build && electron .",
+    "replay": "npm run build && electron . --replay",
+    "record": "tsx scripts/record.ts",
+    "analyze": "tsx scripts/analyze.ts",
+    "synth": "tsx scripts/synth.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "demo": "tsx scripts/demo.ts"
+  },
+  "dependencies": {
+    "@smartspectra/node-sdk": "3.5.0"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^30.0.0",
+    "@types/node": "^22.10.2",
+    "electron": "^45.0.0",
+    "esbuild": "^0.28.2",
+    "jsdom": "^29.1.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1"
+  }
+}
