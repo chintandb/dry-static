@@ -17,7 +17,11 @@ export interface HoldVerdict {
   /** dips the user marked as contractions, so not counted as breaths (SDK-time seconds) */
   excused: number[];
   unreadable: [number, number][];
+  /** what most of the unreadable time was lost to, or null when every moment was readable */
+  lostTo: LostReason | null;
 }
+
+export type LostReason = 'no_signal' | 'validation' | 'talking';
 
 const GRID = 0.1;
 const BREATH_STEP_S = 0.25;
@@ -297,6 +301,14 @@ export class HoldVerifier {
     const verdict: HoldVerdict['verdict'] =
       breathAt !== null ? 'breath_detected' : readablePct >= this.p.readablePctMin ? 'verified' : 'partly_readable';
 
-    return { verdict, readablePct, breathAt, excused, unreadable };
+    const lost = new Map<LostReason, number>();
+    for (const s of samples) {
+      if (s.readable || s.reason === 'ok' || s.reason === 'starting' || s.reason === 'breath_seen') continue;
+      lost.set(s.reason, (lost.get(s.reason) ?? 0) + 1);
+    }
+    let lostTo: LostReason | null = null;
+    for (const [r, n] of lost) if (lostTo === null || n > (lost.get(lostTo) ?? 0)) lostTo = r;
+
+    return { verdict, readablePct, breathAt, excused, unreadable, lostTo };
   }
 }

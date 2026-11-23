@@ -6,6 +6,7 @@ import {
   errorScreen,
   fmt,
   validationHint,
+  verdictLabel,
 } from '../src/core/copy.js';
 
 const whole = (word: string, text: string): boolean => new RegExp(`\\b${word}\\b`, 'i').test(text);
@@ -70,5 +71,33 @@ describe('copy', () => {
       'First contraction (your taps): 0:38 average. Auto marks agreed with 5 of 6 taps.',
     );
     expect(fmt('missing.id')).toBe('missing.id');
+  });
+});
+
+describe('verdictLabel', () => {
+  it('says how much of a partly readable hold was seen, and why the rest was lost', () => {
+    expect(verdictLabel({ verdict: 'partly_readable', readablePct: 40.4, lostTo: 'validation' })).toBe(
+      'partly readable: 40% seen (lost view)',
+    );
+    expect(verdictLabel({ verdict: 'partly_readable', readablePct: 62, lostTo: 'talking' })).toBe(
+      'partly readable: 62% seen (talking)',
+    );
+    expect(verdictLabel({ verdict: 'partly_readable', readablePct: 75, lostTo: 'no_signal' })).toBe(
+      'partly readable: 75% seen (signal dropped)',
+    );
+  });
+
+  it('never rounds a partly readable share up to the verified line', () => {
+    expect(verdictLabel({ verdict: 'partly_readable', readablePct: 89.96, lostTo: null })).toBe('partly readable: 89% seen');
+  });
+
+  it('copes with sessions saved before the reason existed', () => {
+    expect(verdictLabel({ verdict: 'partly_readable', readablePct: 0 })).toBe('partly readable: 0% seen');
+    expect(verdictLabel({ verdict: 'partly_readable', readablePct: Number.NaN })).toBe('partly readable: 0% seen');
+  });
+
+  it('keeps verified and breath detected short', () => {
+    expect(verdictLabel({ verdict: 'verified', readablePct: 100, lostTo: null })).toBe('verified');
+    expect(verdictLabel({ verdict: 'breath_detected', readablePct: 100, lostTo: null })).toBe('breath detected');
   });
 });

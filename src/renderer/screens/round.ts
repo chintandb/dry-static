@@ -1,4 +1,4 @@
-import { COPY, fmt } from '../../core/copy.js';
+import { COPY, fmt, verdictLabel } from '../../core/copy.js';
 import type { RoundResult, SessionView } from '../../core/session.js';
 import type { PulseTrend } from '../../core/pulseTrend.js';
 import type { AppContext, ScreenHandle } from '../app.js';
@@ -23,7 +23,7 @@ const verdictText = (round: RoundResult): string =>
       ? COPY['round.chip.verified']
       : round.verdict.verdict === 'breath_detected'
         ? COPY['round.chip.breath']
-        : COPY['round.chip.unreadable'];
+        : verdictLabel(round.verdict).toUpperCase();
 
 export function mount(root: HTMLElement, ctx: AppContext): ScreenHandle {
   const roundLabel = el('p', { class: 'muted' }, '');
@@ -115,7 +115,7 @@ export function mount(root: HTMLElement, ctx: AppContext): ScreenHandle {
         g.width = 420;
         g.height = 90;
         prevBox.append(
-          el('h3', {}, `Round ${round.round}: ${round.stopped ? verdictText(round) : round.verdict.verdict.replace('_', ' ')}`),
+          el('h3', {}, `Round ${round.round}: ${round.stopped ? verdictText(round) : verdictLabel(round.verdict)}`),
           g,
           ...(round.verdict.excused.length
             ? [el('p', { class: 'tiny' }, fmt('round.excused', { n: round.verdict.excused.length }))]

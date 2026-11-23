@@ -1,4 +1,4 @@
-import { COPY, errorScreen, fmt } from '../../core/copy.js';
+import { COPY, errorScreen, fmt, verdictLabel } from '../../core/copy.js';
 import type { PulseTrend } from '../../core/pulseTrend.js';
 import { summarize, toCsv, type RoundResult, type SessionResult } from '../../core/session.js';
 import type { AppContext, EndProps, ScreenHandle } from '../app.js';
@@ -12,7 +12,7 @@ const pulseText = (value: PulseTrend['start']): string =>
 const roundTitle = (round: RoundResult): string =>
   round.stopped
     ? `Round ${round.round} · ${fmt('round.stopped', { time: clockText(round.actualHoldS) })}`
-    : `Round ${round.round} · ${round.actualHoldS.toFixed(0)} s · ${round.verdict.verdict.replace('_', ' ')}`;
+    : `Round ${round.round} · ${round.actualHoldS.toFixed(0)} s · ${verdictLabel(round.verdict)}`;
 
 const pulseLine = (round: RoundResult): string =>
   fmt('end.pulseLine', {

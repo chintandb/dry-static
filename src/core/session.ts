@@ -78,7 +78,7 @@ export interface SessionView {
   validation: { code: number; hint: string } | null;
 }
 
-const emptyVerdict: HoldVerdict = { verdict: 'partly_readable', readablePct: 0, breathAt: null, excused: [], unreadable: [] };
+const emptyVerdict: HoldVerdict = { verdict: 'partly_readable', readablePct: 0, breathAt: null, excused: [], unreadable: [], lostTo: null };
 
 /**
  * Extra wall time the finishing phase allows past `pulseLagS`: samples arrive a little after
@@ -653,7 +653,7 @@ export function summarize(r: SessionResult, tolS = 1.5): string[] {
 
 export function toCsv(r: SessionResult): string {
   const header =
-    'round,planned_hold_s,actual_hold_s,stopped,verdict,readable_pct,first_tap_s,first_auto_mark_s,taps,auto_marks,pulse_start,pulse_min,pulse_delta';
+    'round,planned_hold_s,actual_hold_s,stopped,verdict,readable_pct,first_tap_s,first_auto_mark_s,taps,auto_marks,pulse_start,pulse_min,pulse_delta,lost_to';
   const rows = r.rounds.map((x) => {
     const pulseStart = x.pulse.start.kind === 'value' ? x.pulse.start.bpm : '';
     const pulseMin = x.pulse.min.kind === 'value' ? x.pulse.min.bpm : '';
@@ -671,6 +671,7 @@ export function toCsv(r: SessionResult): string {
       pulseStart,
       pulseMin,
       x.pulse.delta === null ? '' : x.pulse.delta,
+      x.verdict.lostTo ?? '',
     ].join(',');
   });
   return [header, ...rows].join('\n');

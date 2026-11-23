@@ -19,7 +19,7 @@ const round = (n: number, firstTapS: number, taps: number[], marks: number[], tr
   plannedHoldS: 50,
   actualHoldS: 50,
   stopped: false,
-  verdict: { verdict: 'verified', readablePct: 100, breathAt: null, excused: [], unreadable: [] },
+  verdict: { verdict: 'verified', readablePct: 100, breathAt: null, excused: [], unreadable: [], lostTo: null },
   marks,
   taps,
   firstTapS,
@@ -78,7 +78,7 @@ describe('toCsv', () => {
     const csv = toCsv(fixture(pulse(74, 63)));
     const rows = csv.split('\n');
     expect(rows[0]).toBe(
-      'round,planned_hold_s,actual_hold_s,stopped,verdict,readable_pct,first_tap_s,first_auto_mark_s,taps,auto_marks,pulse_start,pulse_min,pulse_delta',
+      'round,planned_hold_s,actual_hold_s,stopped,verdict,readable_pct,first_tap_s,first_auto_mark_s,taps,auto_marks,pulse_start,pulse_min,pulse_delta,lost_to',
     );
     expect(rows).toHaveLength(4);
     expect(rows[3].startsWith('3,50,50.0,no,verified,100.0,36.0,236.3,2,2,74,63,-11')).toBe(true);

@@ -237,4 +237,34 @@ describe('holdVerifier', () => {
     const v = run(makeTrace(), 60);
     expect(v.status(1)).toEqual({ state: 'verified', reason: 'starting' });
   });
+
+  describe('what an unreadable hold was lost to', () => {
+    it('a fully readable hold has no reason', () => {
+      expect(run(makeTrace(), 60).finish(60).lostTo).toBeNull();
+    });
+
+    it('a long gap is a dropped signal', () => {
+      const verdict = run(makeTrace({ gaps: [[10, 40]] }), 60).finish(60);
+      expect(verdict.verdict).toBe('partly_readable');
+      expect(verdict.readablePct).toBeLessThan(60);
+      expect(verdict.lostTo).toBe('no_signal');
+    });
+
+    it('a lost view is reported as validation', () => {
+      const verdict = run(makeTrace(), 60, (v) => {
+        v.pushValidation(15, 7);
+        v.pushValidation(45, 0);
+      }).finish(60);
+      expect(verdict.verdict).toBe('partly_readable');
+      expect(verdict.lostTo).toBe('validation');
+    });
+
+    it('long talking is reported as talking', () => {
+      const verdict = run(makeTrace(), 60, (v) => {
+        v.pushTalking([{ t: 20, detected: true }, { t: 50, detected: false }]);
+      }).finish(60);
+      expect(verdict.verdict).toBe('partly_readable');
+      expect(verdict.lostTo).toBe('talking');
+    });
+  });
 });

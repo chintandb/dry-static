@@ -66,7 +66,7 @@ const result: SessionResult = {
       plannedHoldS: 45,
       actualHoldS: 45,
       stopped: false,
-      verdict: { verdict: 'breath_detected', readablePct: 98, breathAt: 22, excused: [], unreadable: [] },
+      verdict: { verdict: 'breath_detected', readablePct: 98, breathAt: 22, excused: [], unreadable: [], lostTo: null },
       marks: [22],
       taps: [22.4],
       firstTapS: 22.4,
@@ -184,6 +184,21 @@ describe('screens', () => {
     expect(root.querySelectorAll('p.sentence').length).toBeLessThanOrEqual(3);
     expect(root.textContent).toContain(COPY['replay.synthetic']);
     expect(root.textContent).toContain(COPY['end.exportCsv']);
+  });
+
+  it('end screen shows how much of a partly readable hold was seen', () => {
+    const root = document.createElement('div');
+    const partly: SessionResult = {
+      ...result,
+      rounds: [
+        {
+          ...result.rounds[0],
+          verdict: { verdict: 'partly_readable', readablePct: 40.2, breathAt: null, excused: [], unreadable: [[20, 47]], lostTo: 'validation' },
+        },
+      ],
+    };
+    end(root, ctx({ props: partly }));
+    expect(root.textContent).toContain('partly readable: 40% seen (lost view)');
   });
 
   it('the bundled recording is labeled synthetic in meta', () => {

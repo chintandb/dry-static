@@ -102,6 +102,12 @@ export const COPY: Record<string, string> = {
   'round.chip.verified': 'HOLD VERIFIED',
   'round.chip.breath': 'BREATH DETECTED',
   'round.chip.unreadable': 'NOT READABLE',
+  'verdict.verified': 'verified',
+  'verdict.breath': 'breath detected',
+  'verdict.partly': 'partly readable: {pct}% seen',
+  'verdict.lost.no_signal': 'signal dropped',
+  'verdict.lost.validation': 'lost view',
+  'verdict.lost.talking': 'talking',
   'round.reason.ok': 'The trace stayed flat.',
   'round.reason.starting': 'Checking the first few seconds.',
   'round.reason.no_signal': 'No signal right now.',
@@ -262,4 +268,17 @@ export function errorScreen(code: number | 'no_key'): ErrorScreen {
     body: 'The app could not continue. Retry, or watch the bundled replay.',
     action: 'retry',
   };
+}
+
+/**
+ * One-line verdict for summaries. A partly readable hold always shows how much of it the
+ * camera saw and why the rest was lost. The share is rounded down, so 89.9% never reads as 90%.
+ */
+export function verdictLabel(v: { verdict: string; readablePct: number; lostTo?: string | null }): string {
+  if (v.verdict === 'verified') return COPY['verdict.verified'];
+  if (v.verdict === 'breath_detected') return COPY['verdict.breath'];
+  const pct = Math.max(0, Math.floor(Number.isFinite(v.readablePct) ? v.readablePct : 0));
+  const label = fmt('verdict.partly', { pct });
+  const why = v.lostTo ? COPY[`verdict.lost.${v.lostTo}`] : undefined;
+  return why ? `${label} (${why})` : label;
 }
