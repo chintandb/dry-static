@@ -248,6 +248,21 @@ describe('holdVerifier', () => {
       expect(verdict.verdict).toBe('partly_readable');
       expect(verdict.readablePct).toBeLessThan(60);
       expect(verdict.lostTo).toBe('no_signal');
+      expect(verdict.breathAt).toBeNull();
+      expect(verdict.lost).toHaveLength(1);
+      expect(verdict.lost?.[0].reason).toBe('no_signal');
+      expect(verdict.lost?.[0].from).toBeGreaterThan(11);
+      expect(verdict.lost?.[0].from).toBeLessThan(12);
+      expect(verdict.lost?.[0].to).toBeGreaterThan(39.9);
+      expect(verdict.lost?.[0].to).toBeLessThan(40.3);
+    });
+
+    it('separate stretches keep their own reasons', () => {
+      const verdict = run(makeTrace({ gaps: [[12, 20]] }), 60, (v) => {
+        v.pushValidation(30, 7);
+        v.pushValidation(40, 0);
+      }).finish(60);
+      expect(verdict.lost?.map((l) => l.reason)).toEqual(['no_signal', 'validation']);
     });
 
     it('a lost view is reported as validation', () => {

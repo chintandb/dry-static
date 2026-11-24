@@ -19,6 +19,11 @@ export interface HoldVerdict {
   unreadable: [number, number][];
   /** what most of the unreadable time was lost to, or null when every moment was readable */
   lostTo: LostReason | null;
+  /**
+   * Each unreadable stretch with what it was lost to, for the strip chart. Optional because
+   * sessions saved before it existed do not have it.
+   */
+  lost?: { from: number; to: number; reason: LostReason }[];
 }
 
 export type LostReason = 'no_signal' | 'validation' | 'talking';
@@ -309,6 +314,16 @@ export class HoldVerifier {
     let lostTo: LostReason | null = null;
     for (const [r, n] of lost) if (lostTo === null || n > (lost.get(lostTo) ?? 0)) lostTo = r;
 
-    return { verdict, readablePct, breathAt, excused, unreadable, lostTo };
+    const spans: { from: number; to: number; reason: LostReason }[] = [];
+    for (const s of samples) {
+      const reason = s.readable ? null : (s.reason as LostReason);
+      const lastSpan = spans[spans.length - 1];
+      if (reason === null) continue;
+      if (lastSpan && lastSpan.reason === reason && s.g - lastSpan.to <= GRID + 1e-9) lastSpan.to = s.g;
+      else spans.push({ from: s.g, to: s.g, reason });
+    }
+    for (const span of spans) span.to = Math.min(tEnd, span.to + GRID);
+
+    return { verdict, readablePct, breathAt, excused, unreadable, lostTo, lost: spans };
   }
 }

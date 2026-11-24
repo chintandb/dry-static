@@ -1,7 +1,7 @@
 import { calibrate, type Calibration } from './calibration.js';
 import { ClockSync } from './clock.js';
 import { detectContractions, matchTaps } from './contractions.js';
-import { fmt } from './copy.js';
+import { COPY, fmt } from './copy.js';
 import { HoldVerifier, type HoldLiveStatus, type HoldVerdict } from './holdVerifier.js';
 import type { Params } from './params.js';
 import { pulseTrend, type PulseTrend } from './pulseTrend.js';
@@ -622,8 +622,25 @@ export function summarize(r: SessionResult, tolS = 1.5): string[] {
   const out: string[] = [];
   const total = r.rounds.length;
   if (total > 0) {
-    const verified = r.rounds.filter((x) => x.verdict.verdict === 'verified').length;
-    out.push(fmt('summary.verified', { n: verified, total }));
+    // A hold the camera could not fully see is never lumped in with one where a breath was
+    // seen: the first sentence names each kind, and why the camera lost the partly readable ones.
+    const verified = r.rounds.filter((x) => !x.stopped && x.verdict.verdict === 'verified');
+    const stopped = r.rounds.filter((x) => x.stopped);
+    const breath = r.rounds.filter((x) => !x.stopped && x.verdict.verdict === 'breath_detected');
+    const partly = r.rounds.filter((x) => !x.stopped && x.verdict.verdict === 'partly_readable');
+    const rest: string[] = [];
+    if (breath.length) rest.push(fmt('summary.rest.breath', { n: breath.length }));
+    if (partly.length) {
+      const reasons = [...new Set(partly.map((x) => x.verdict.lostTo).filter((x): x is NonNullable<typeof x> => !!x))];
+      const why = reasons.map((x) => COPY[`verdict.lost.${x}`]).join(', ');
+      rest.push(`${fmt('summary.rest.partly', { n: partly.length })}${why ? ` (${why})` : ''}`);
+    }
+    if (stopped.length) rest.push(fmt('summary.rest.stopped', { n: stopped.length }));
+    out.push(
+      rest.length
+        ? fmt('summary.verifiedRest', { n: verified.length, total, rest: rest.join(', ') })
+        : fmt('summary.verified', { n: verified.length, total }),
+    );
   }
 
   const firstTaps = r.rounds.map((x) => x.firstTapS).filter((s): s is number => s !== null);

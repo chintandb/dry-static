@@ -43,6 +43,11 @@ export interface StripOptions {
   height?: number;
   /** draw the pulse curve on its own scale, below the trace */
   pulseAxis?: boolean;
+  /**
+   * Stretches the camera could not read, each with a short label ("lost view"). They are
+   * hatched in gray, never in the warning color, so a sensor gap does not look like a breath.
+   */
+  lost?: { from: number; to: number; label: string }[];
 }
 
 const COLORS = {
@@ -50,6 +55,8 @@ const COLORS = {
   grid: '#1d2830',
   trace: '#d8e6ee',
   shade: 'rgba(70, 130, 180, 0.12)',
+  lost: 'rgba(143, 163, 173, 0.16)',
+  lostHatch: 'rgba(143, 163, 173, 0.35)',
   mark: '#e0a458',
   tap: '#7fc8a9',
   pulse: '#9fb8c8',
@@ -75,6 +82,7 @@ export function drawStrip(ctx: CanvasRenderingContext2D, opts: Omit<StripOptions
   }
 
   const traceH = opts.pulseAxis ? h * 0.72 : h;
+  drawLost(ctx, opts, w, traceH, pad);
   const points = scaleSeries(opts.trace, opts.t0, opts.t1, w, traceH, pad);
   ctx.strokeStyle = COLORS.trace;
   ctx.lineWidth = 1.5;
@@ -135,5 +143,52 @@ export function drawStrip(ctx: CanvasRenderingContext2D, opts: Omit<StripOptions
     ctx.font = '11px system-ui, sans-serif';
     ctx.fillText(`${hi}`, 4, top + 10);
     ctx.fillText(`${lo}`, 4, bottom);
+  }
+}
+
+/** Pixel spans for the lost stretches, clipped to the chart; exported for tests. */
+export function lostRects(
+  lost: { from: number; to: number; label: string }[],
+  t0: number,
+  t1: number,
+  w: number,
+  pad: number,
+): { x0: number; x1: number; label: string }[] {
+  const span = Math.max(1e-6, t1 - t0);
+  const xOf = (t: number): number => pad + ((t - t0) / span) * (w - 2 * pad);
+  return lost
+    .filter((l) => Number.isFinite(l.from) && Number.isFinite(l.to) && l.to > l.from && l.to > t0 && l.from < t1)
+    .map((l) => ({ x0: Math.max(pad, xOf(l.from)), x1: Math.min(w - pad, xOf(l.to)), label: l.label }));
+}
+
+function drawLost(
+  ctx: CanvasRenderingContext2D,
+  opts: { lost?: { from: number; to: number; label: string }[]; t0: number; t1: number },
+  w: number,
+  traceH: number,
+  pad: number,
+): void {
+  for (const r of lostRects(opts.lost ?? [], opts.t0, opts.t1, w, pad)) {
+    const width = Math.max(1, r.x1 - r.x0);
+    ctx.fillStyle = COLORS.lost;
+    ctx.fillRect(r.x0, 0, width, traceH);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(r.x0, 0, width, traceH);
+    ctx.clip();
+    ctx.strokeStyle = COLORS.lostHatch;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = r.x0 - traceH; x < r.x1; x += 8) {
+      ctx.moveTo(x, traceH);
+      ctx.lineTo(x + traceH, 0);
+    }
+    ctx.stroke();
+    ctx.restore();
+    if (width >= 48) {
+      ctx.fillStyle = COLORS.text;
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.fillText(r.label, r.x0 + 4, 14);
+    }
   }
 }

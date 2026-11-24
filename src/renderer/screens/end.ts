@@ -20,6 +20,10 @@ const pulseLine = (round: RoundResult): string =>
     min: round.pulseStatus === 'incomplete' ? COPY['pulse.incomplete'] : pulseText(round.pulse.min),
   });
 
+/** The stretches of a hold the camera could not read, labeled with what they were lost to. */
+const lostFor = (round: RoundResult): { from: number; to: number; label: string }[] =>
+  (round.verdict.lost ?? []).map((l) => ({ from: l.from, to: l.to, label: COPY[`verdict.lost.${l.reason}`] ?? '' }));
+
 /** End props are { result, traces } from the app; a bare SessionResult is still accepted. */
 function readProps(ctx: AppContext): EndProps | null {
   const props = ctx.props as EndProps | SessionResult | null;
@@ -61,6 +65,7 @@ export function mount(root: HTMLElement, ctx: AppContext): ScreenHandle {
         t0: round.t0 - 2,
         t1: round.tEnd + 12,
         pulseAxis: round.pulse.curve.length > 0,
+        lost: lostFor(round),
       });
     }
   }
@@ -111,6 +116,7 @@ export function mount(root: HTMLElement, ctx: AppContext): ScreenHandle {
         t0: round.t0 - 2,
         t1: round.tEnd + 12,
         pulseAxis: round.pulse.curve.length > 0,
+        lost: lostFor(round),
       });
       g.drawImage(block, 0, 30 + i * rowHeight);
     });

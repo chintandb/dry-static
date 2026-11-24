@@ -46,6 +46,37 @@ const fixture = (trend: PulseTrend): SessionResult => ({
 });
 
 describe('summarize', () => {
+  it('never lumps a hold the camera could not see in with one where a breath was seen', () => {
+    const base = fixture(pulse(null, null));
+    const [r1, r2, r3] = base.rounds;
+    const result: SessionResult = {
+      ...base,
+      rounds: [
+        r1,
+        { ...r2, verdict: { ...r2.verdict, verdict: 'breath_detected', breathAt: 160 } },
+        { ...r3, verdict: { ...r3.verdict, verdict: 'partly_readable', readablePct: 40, lostTo: 'validation' } },
+        { ...r3, round: 4, stopped: true, actualHoldS: 0, verdict: { ...r3.verdict, verdict: 'partly_readable', readablePct: 0 } },
+      ],
+    };
+    expect(summarize(result, p.tapTolS)[0]).toBe(
+      '1 of 4 holds verified; 1 with a breath seen, 1 partly readable (lost view), 1 stopped.',
+    );
+  });
+
+  it('names every reason when partly readable holds were lost to different things', () => {
+    const base = fixture(pulse(null, null));
+    const [r1, r2, r3] = base.rounds;
+    const result: SessionResult = {
+      ...base,
+      rounds: [
+        r1,
+        { ...r2, verdict: { ...r2.verdict, verdict: 'partly_readable', readablePct: 70, lostTo: 'no_signal' } },
+        { ...r3, verdict: { ...r3.verdict, verdict: 'partly_readable', readablePct: 55, lostTo: 'talking' } },
+      ],
+    };
+    expect(summarize(result, p.tapTolS)[0]).toBe('1 of 3 holds verified; 2 partly readable (signal dropped, talking).');
+  });
+
   it('three plain sentences', () => {
     expect(summarize(fixture(pulse(74, 63)), p.tapTolS)).toEqual([
       '3 of 3 holds verified.',

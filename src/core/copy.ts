@@ -149,6 +149,10 @@ export const COPY: Record<string, string> = {
   'about.back': 'Back',
 
   'summary.verified': '{n} of {total} holds verified.',
+  'summary.verifiedRest': '{n} of {total} holds verified; {rest}.',
+  'summary.rest.breath': '{n} with a breath seen',
+  'summary.rest.partly': '{n} partly readable',
+  'summary.rest.stopped': '{n} stopped',
   'summary.contraction': 'First contraction (your taps): {avg} average. Auto marks agreed with {matched} of {taps} taps.',
   'summary.contractionNoAuto': 'First contraction (your taps): {avg} average.',
   'summary.pulse': 'Pulse fell from {start} to {min} during round {round}.',

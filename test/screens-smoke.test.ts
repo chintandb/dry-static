@@ -199,6 +199,7 @@ describe('screens', () => {
     };
     end(root, ctx({ props: partly }));
     expect(root.textContent).toContain('partly readable: 40% seen (lost view)');
+    expect(root.textContent).toContain('0 of 1 holds verified; 1 partly readable (lost view).');
   });
 
   it('the bundled recording is labeled synthetic in meta', () => {

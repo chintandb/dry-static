@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { scaleSeries } from '../src/renderer/charts/strip.js';
+import { lostRects, scaleSeries } from '../src/renderer/charts/strip.js';
 
 describe('scaleSeries', () => {
   it('maps the window onto the padded box', () => {
@@ -31,5 +31,29 @@ describe('scaleSeries', () => {
 
   it('returns nothing for an empty series', () => {
     expect(scaleSeries([], 0, 5, 100, 50, 5)).toEqual([]);
+  });
+});
+
+describe('lostRects', () => {
+  it('maps lost stretches onto the chart and clips them to it', () => {
+    const rects = lostRects(
+      [
+        { from: 2, to: 4, label: 'lost view' },
+        { from: -5, to: 1, label: 'signal dropped' },
+        { from: 12, to: 20, label: 'talking' },
+      ],
+      0,
+      10,
+      110,
+      5,
+    );
+    expect(rects).toEqual([
+      { x0: 25, x1: 45, label: 'lost view' },
+      { x0: 5, x1: 15, label: 'signal dropped' },
+    ]);
+  });
+
+  it('drops empty or broken stretches', () => {
+    expect(lostRects([{ from: 3, to: 3, label: 'x' }, { from: Number.NaN, to: 4, label: 'y' }], 0, 10, 110, 5)).toEqual([]);
   });
 });
